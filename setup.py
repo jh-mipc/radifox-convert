@@ -42,7 +42,7 @@ setup(
     install_requires=[
         "nibabel",
         "numpy",
-        "radifox>=2.0.0"
+        "radifox>=2.0.0",
         "pydicom",
     ],
     python_requires=">=3.10",
