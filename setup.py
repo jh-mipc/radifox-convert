@@ -35,8 +35,8 @@ setup(
     packages=find_namespace_packages(include=['radifox.*']),
     entry_points={
         "console_scripts": [
-            "radifox-convert=radifox.conversion.cli:convert",
-            "radifox-update=radifox.conversion.cli:update",
+            "radifox-convert=radifox.convert.cli:convert",
+            "radifox-update=radifox.convert.cli:update",
         ]
     },
     install_requires=[
