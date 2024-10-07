@@ -43,7 +43,7 @@ setup(
         "nibabel",
         "numpy",
         "radifox>=2.0.0",
-        "pydicom",
+        "pydicom<=2.4",
     ],
     python_requires=">=3.10",
     include_package_data=True,
