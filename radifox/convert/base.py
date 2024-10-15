@@ -12,7 +12,7 @@ from subprocess import run, PIPE, STDOUT
 from typing import Callable, List, Tuple, Union, Any, Optional
 
 import numpy as np
-from radifox.qa.create import create_qa_image
+from radifox.records.qa import create_qa_image
 from radifox.records.hashing import hash_file_dir, hash_file_list, hash_value
 from radifox.records.json import NoIndent, JSONObjectEncoder
 

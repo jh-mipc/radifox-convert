@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0", 'tomli;python_version<"3.11"']
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radifox-convert"
+dynamic = ["version"]
+description = "A quality assurance webapp for the RADIFOX framework."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "JH-MIPC", email = "jhmipc@jh.edu"},
+]
+urls = { "Homepage" = "https://github.com/jh-mipc/radifox-convert" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "nibabel",
+    "numpy",
+    "radifox>=2.1.0",
+    "pydicom",
+]
+
+[project.scripts]
+radifox-convert = "radifox.convert.cli:convert"
+radifox-update = "radifox.convert.cli:update"
+
+[tool.setuptools.packages.find]
+include = ["radifox.*"]
+
+[tool.setuptools.package-data]
+"radifox.convert" = ["parrec_templates/*.txt"]
+
+[miniver]
+package_path = "radifox/convert"
