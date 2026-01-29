@@ -23,6 +23,7 @@ dependencies = [
     "numpy",
     "radifox>=2.1.0",
     "pydicom",
+    "sqlalchemy",
 ]
 
 [project.scripts]
