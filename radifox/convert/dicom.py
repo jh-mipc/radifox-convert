@@ -165,6 +165,7 @@ class DicomSet(BaseSet):
         manual_names: Optional[dict] = None,
         input_hash: Optional[str] = None,
         force_derived: bool = False,
+        extras: Optional[list] = None,
     ) -> None:
         super().__init__(
             source,
@@ -175,6 +176,7 @@ class DicomSet(BaseSet):
             date_shift_days,
             manual_names,
             input_hash,
+            extras,
         )
         self.ForceDerived = force_derived
 
@@ -210,6 +212,7 @@ class DicomSet(BaseSet):
                     series_nums[di.SourcePath],
                     self.LookupTable,
                     self.ManualNames,
+                    self.Extras,
                 )
 
         logging.info("Generating unique names")

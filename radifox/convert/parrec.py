@@ -123,6 +123,7 @@ class ParrecSet(BaseSet):
         manual_names: Optional[dict] = None,
         manual_args: Optional[dict] = None,
         input_hash: Optional[str] = None,
+        extras: Optional[list] = None,
     ) -> None:
         super().__init__(
             source,
@@ -133,6 +134,7 @@ class ParrecSet(BaseSet):
             date_shift_days,
             manual_names,
             input_hash,
+            extras,
         )
         self.ManualArgs = manual_args
 
@@ -161,6 +163,7 @@ class ParrecSet(BaseSet):
                         series_nums[di.SourcePath],
                         self.LookupTable,
                         self.ManualNames,
+                        self.Extras,
                     )
 
         logging.info("Generating unique names")

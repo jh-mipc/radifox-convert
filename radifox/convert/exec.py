@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import shutil
-from typing import Optional
+from typing import List, Optional
 
 from radifox.records.logging import create_loggers
 from radifox.records.hashing import hash_value
@@ -41,6 +41,7 @@ def run_conversion(
     manual_names: dict,
     input_hash: Optional[str] = None,
     force_derived: bool = False,
+    extras: Optional[list] = None,
 ) -> None:
     session_path = output_root / metadata.dir_to_str()
     mkdir_p(session_path)
@@ -112,6 +113,7 @@ def run_conversion(
                 manual_names,
                 input_hash=input_hash,
                 manual_args=manual_args,
+                extras=extras,
             )
         else:
             img_set = DicomSet(
@@ -124,6 +126,7 @@ def run_conversion(
                 manual_names,
                 input_hash=input_hash,
                 force_derived=force_derived,
+                extras=extras,
             )
         img_set.create_all_nii()
         img_set.generate_unconverted_info()

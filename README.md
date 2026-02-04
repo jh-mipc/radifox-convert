@@ -110,6 +110,30 @@ The naming convention for manual naming entries is the same as for look-up table
 
 The simplest way to create manual naming entries is to use the `radifox-qa` webapp.
 
+## Filename Extras
+The `--extras` flag appends values from DICOM fields to the end of the output filename.
+This is useful when multiple series share the same predicted name but differ by a field
+not included in the standard naming convention (e.g., different slice thicknesses).
+
+```bash
+radifox-convert /path/to/source -o /output -p PROJ -s S01 -e 1 --extras SliceThickness
+```
+
+Without `--extras`, two CT reconstructions at different thicknesses would both be named:
+```
+PROJ-S01_1_01-01_BRAIN-NONCON-SOFT-2D-AXIAL-PRE.nii.gz
+PROJ-S01_1_01-02_BRAIN-NONCON-SOFT-2D-AXIAL-PRE.nii.gz
+```
+
+With `--extras SliceThickness`, the slice thickness values are appended:
+```
+PROJ-S01_1_01-01_BRAIN-NONCON-SOFT-2D-AXIAL-PRE-5.0.nii.gz
+PROJ-S01_1_01-02_BRAIN-NONCON-SOFT-2D-AXIAL-PRE-0.625.nii.gz
+```
+
+The field names must match attributes available on the series info object (e.g., `SliceThickness`,
+`EchoTime`, `RepetitionTime`). Multiple fields can be comma-separated. Fields with `None` or empty values are omitted.
+
 ## JSON Sidecar Files
 JSON sidecar files are created for each NIfTI file during conversion.
 They contain information about the conversion process (versions, look-up table values, manual naming, etc.) as well as critical DICOM metadata.
@@ -169,6 +193,7 @@ Any output that is returned from the `run` method will have a QA image generated
 | `--institution`             | The institution name to use for the session (required for PAR/REC conversion).                                                         | `None`                                            |
 | `--field-strength`          | The magnetic field strength to use for the session (required for PAR/REC conversion).                                                  | `None`                                            |
 | `--anonymize`               | Experimental anonymization support (will remove copied DICOM files).                                                                   | `False`                                           |
+| `--extras`                  | Comma-separated DICOM field names to append to filename (e.g., `SeriesNumber,SliceThickness`).                                         | `None`                                            |
 | `--date-shift-days`         | The number of days to shift the date by during anonymization.                                                                          | `None`                                            |
 | `--tms-metafile`            | The TMS metafile to use for subject, site and session ID.                                                                              | `None`                                            |
 | `--force-derived`           | Convert derived/secondary DICOM series that would normally be skipped (e.g., images converted from NIfTI back to DICOM).               | `False`                                           |

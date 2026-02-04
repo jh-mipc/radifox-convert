@@ -63,6 +63,11 @@ def convert(args: Optional[List[str]] = None) -> None:
     )
     parser.add_argument("--anonymize", action="store_true", help="Anonymize DICOM data.")
     parser.add_argument("--date-shift-days", type=int, help="Number of days to shift dates.")
+    parser.add_argument(
+        "--extras",
+        type=str,
+        help="Comma-separated DICOM field names to append to filename (e.g., 'SeriesNumber,SliceThickness').",
+    )
     parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
 
     args = parser.parse_args(args)
@@ -166,6 +171,9 @@ def convert(args: Optional[List[str]] = None) -> None:
         "InstitutionName": args.institution,
     }
 
+    # Parse extras into a list of DICOM field names
+    extras_list = [e.strip() for e in args.extras.split(",")] if args.extras else []
+
     run_conversion(
         args.source,
         args.output_root,
@@ -182,6 +190,7 @@ def convert(args: Optional[List[str]] = None) -> None:
         manual_names,
         None,
         args.force_derived,
+        extras_list,
     )
 
 

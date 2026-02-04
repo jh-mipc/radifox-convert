@@ -402,6 +402,7 @@ class BaseInfo:
         series_num: int,
         lut_obj: LookupTable,
         manual_dict: dict,
+        extras: Optional[list] = None,
     ) -> None:
         source_name = str(self.SourcePath)
         man_list = [None] * 6
@@ -456,8 +457,19 @@ class BaseInfo:
             for i in range(len(final_list))
         ]
         final_list = [item.upper() if item is not None else "UNK" for item in final_list]
+
+        # Gather extras values from DICOM fields
+        extras_values = []
+        if extras:
+            for field_name in extras:
+                value = getattr(self, field_name, None)
+                if value is not None and value != "":
+                    extras_values.append(str(value))
+
+        # Build the final name with extras appended
+        name_parts = final_list + extras_values
         self.NiftiName = "_".join(
-            [scan_str, "%02d-%02d" % (study_num, series_num), "-".join(final_list)]
+            [scan_str, "%02d-%02d" % (study_num, series_num), "-".join(name_parts)]
         )
         logging.debug("Predicted name: %s" % self.NiftiName)
 
@@ -473,6 +485,7 @@ class BaseSet:
         date_shift_days: int = 0,
         manual_names: Optional[dict] = None,
         input_hash: Optional[str] = None,
+        extras: Optional[list] = None,
     ) -> None:
         self.__version__ = {"radifox": __version__, "dcm2niix": get_software_versions()["dcm2niix"]}
         self.ConversionSoftwareVersions = get_software_versions()
@@ -490,6 +503,7 @@ class BaseSet:
         self.DateShiftDays = date_shift_days
         self.OutputRoot = output_root
         self.SeriesList = []
+        self.Extras = extras if extras is not None else []
 
     def __repr_json__(self) -> dict:
         return {
