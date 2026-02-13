@@ -176,6 +176,7 @@ class DicomSet(BaseSet):
         manual_names: Optional[dict] = None,
         input_hash: Optional[str] = None,
         force_derived: bool = False,
+        qa: bool = True,
     ) -> None:
         super().__init__(
             source,
@@ -186,6 +187,7 @@ class DicomSet(BaseSet):
             date_shift_days,
             manual_names,
             input_hash,
+            qa=qa,
         )
         self.ForceDerived = force_derived
 

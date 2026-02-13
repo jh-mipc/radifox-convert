@@ -534,6 +534,7 @@ class BaseSet:
         date_shift_days: int = 0,
         manual_names: Optional[dict] = None,
         input_hash: Optional[str] = None,
+        qa: bool = True,
     ) -> None:
         self.__version__ = {"radifox": __version__, "dcm2niix": get_software_versions()["dcm2niix"]}
         self.ConversionSoftwareVersions = get_software_versions()
@@ -550,13 +551,14 @@ class BaseSet:
         self.RemoveIdentifiers = remove_identifiers
         self.DateShiftDays = date_shift_days
         self.OutputRoot = output_root
+        self.QA = qa
         self.SeriesList = []
 
     def __repr_json__(self) -> dict:
         return {
             key: value
             for key, value in self.__dict__.items()
-            if key not in ["OutputRoot", "DateShiftDays"]
+            if key not in ["OutputRoot", "DateShiftDays", "QA"]
         }
 
     @staticmethod
@@ -863,7 +865,7 @@ class BaseSet:
                 for di in di_list:
                     if di.ConvertImage:
                         self.generate_sidecar(di)
-                        if di.NiftiCreated:
+                        if di.NiftiCreated and self.QA:
                             self.generate_qa_image(di)
         self.SeriesList = sorted(
             sorted(self.SeriesList, key=lambda x: (x.StudyUID, x.SeriesNumber, x.SeriesUID)),
