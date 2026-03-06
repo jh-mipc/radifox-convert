@@ -5,6 +5,9 @@ from pathlib import Path
 import shutil
 from typing import List, Optional
 
+from pydicom import dcmread
+from pydicom.errors import InvalidDicomError
+
 from radifox.records.hashing import hash_file_dir
 
 from ._version import __version__
@@ -12,6 +15,49 @@ from .exec import run_conversion, ExecError
 from .lut import LookupTable
 from .metadata import Metadata
 from .utils import silentremove, mkdir_p, version_check
+
+
+# ---------------------------------------------------------------------------
+# Helper functions (shared between single and batch conversion)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_lut_file(
+    output_root: Path, metadata: Metadata, lut_file_arg: Optional[Path], no_project_subdir: bool = False
+) -> Path:
+    """Resolve the LUT file path from an explicit arg or the default location."""
+    if lut_file_arg is not None:
+        return lut_file_arg
+    if no_project_subdir:
+        return output_root / (metadata.projectname + "-lut.csv")
+    return output_root / metadata.projectname / (metadata.projectname + "-lut.csv")
+
+
+def _load_manual_names(output_root: Path, metadata: Metadata) -> dict:
+    """Load ManualNaming.json if it exists, otherwise return empty dict."""
+    manual_json_file = output_root / metadata.dir_to_str() / (metadata.prefix_to_str() + "_ManualNaming.json")
+    return json.loads(manual_json_file.read_text()) if manual_json_file.exists() else {}
+
+
+def _find_first_dicom(directory: Path):
+    """Walk a directory to find and read the first valid DICOM file.
+
+    Only one file is needed because patient-level DICOM attributes (PatientID,
+    PatientName, etc.) are constant across all files within a subject directory.
+    """
+    for f in sorted(directory.rglob("*")):
+        if f.is_file():
+            try:
+                ds = dcmread(f, stop_before_pixels=True)
+                return ds
+            except (InvalidDicomError, Exception):
+                continue
+    return None
+
+
+# ---------------------------------------------------------------------------
+# radifox-convert (single subject conversion)
+# ---------------------------------------------------------------------------
 
 
 def convert(args: Optional[List[str]] = None) -> None:
@@ -199,6 +245,131 @@ def convert(args: Optional[List[str]] = None) -> None:
         extras_list,
         qa=not args.no_qa,
     )
+
+
+# ---------------------------------------------------------------------------
+# radifox-convert-batch (batch conversion over subject subdirectories)
+# ---------------------------------------------------------------------------
+
+
+def convert_batch(args: Optional[List[str]] = None) -> None:
+    """Convert multiple subjects from subdirectories in a parent directory."""
+    parser = argparse.ArgumentParser(
+        description="Batch convert DICOM files from multiple subjects to NIfTI using RADIFOX naming."
+    )
+    parser.add_argument(
+        "source",
+        type=Path,
+        help="Parent directory containing subject subdirectories with DICOM files.",
+    )
+    parser.add_argument(
+        "-o", "--output-root", type=Path, help="Output root directory.", required=True
+    )
+    parser.add_argument("-l", "--lut-file", type=Path, help="Lookup table file.")
+    parser.add_argument("-p", "--project-id", type=str, help="Project ID.", required=True)
+    parser.add_argument("--site-id", type=str, help="Site ID.")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output.")
+    parser.add_argument(
+        "--force", action="store_true", help="Force run even if it would be skipped."
+    )
+    parser.add_argument(
+        "--reckless", action="store_true", help="Force run and overwrite existing data."
+    )
+    parser.add_argument(
+        "--force-dicom", action="store_true", help="Force read DICOM files.", default=False
+    )
+    parser.add_argument("--anonymize", action="store_true", help="Anonymize DICOM data.")
+    parser.add_argument("--date-shift-days", type=int, help="Number of days to shift dates.")
+    parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
+
+    args = parser.parse_args(args)
+
+    for argname in ["source", "output_root", "lut_file"]:
+        if getattr(args, argname) is not None:
+            setattr(args, argname, getattr(args, argname).resolve())
+
+    if not args.source.is_dir():
+        raise ValueError("Source must be a directory containing subject subdirectories.")
+
+    subdirs = sorted([d for d in args.source.iterdir() if d.is_dir()])
+    if not subdirs:
+        raise ValueError("No subdirectories found in source directory.")
+
+    print("Found %d subdirectories to process." % len(subdirs))
+
+    failed = []
+    for i, subdir in enumerate(subdirs, 1):
+        print("\n[%d/%d] %s" % (i, len(subdirs), subdir.name))
+        success, reason = _process_subject(subdir, args)
+        if success:
+            print("  OK")
+        else:
+            print("  FAILED: %s" % reason)
+            failed.append((subdir.name, reason))
+
+    print("\n--- Batch conversion complete ---")
+    print("Processed: %d, Failed: %d" % (len(subdirs) - len(failed), len(failed)))
+    if failed:
+        print("\nFailed directories:")
+        for name, reason in failed:
+            print("  %s: %s" % (name, reason))
+
+
+def _process_subject(subdir: Path, args: argparse.Namespace):
+    """Process a single subject directory for batch conversion.
+
+    Returns (success: bool, error_reason: str or None).
+    """
+    ds = _find_first_dicom(subdir)
+    if ds is None:
+        return False, "No valid DICOM files"
+
+    patient_id = getattr(ds, "PatientID", None) or subdir.name
+    subject_id = patient_id
+    session_id = "1"
+
+    metadata = Metadata(args.project_id, subject_id, session_id, args.site_id, False)
+    lut_file = _resolve_lut_file(args.output_root, metadata, args.lut_file)
+    manual_names = _load_manual_names(args.output_root, metadata)
+
+    # Check if output already exists
+    output_dir = args.output_root / metadata.dir_to_str() / "dcm"
+    if output_dir.exists():
+        if args.reckless:
+            shutil.rmtree(output_dir)
+            silentremove(args.output_root / metadata.dir_to_str() / "nii")
+            for filepath in (args.output_root / metadata.dir_to_str()).glob("*.json"):
+                silentremove(filepath)
+        elif args.force:
+            return False, "Output exists, use --reckless to overwrite."
+        else:
+            return False, "Output exists, use --force or --reckless to overwrite."
+
+    try:
+        run_conversion(
+            subdir,
+            args.output_root,
+            metadata,
+            lut_file,
+            args.verbose,
+            False,
+            False,
+            None,
+            {"MagneticFieldStrength": None, "InstitutionName": None},
+            args.force_dicom,
+            args.anonymize,
+            args.date_shift_days,
+            manual_names,
+            None,
+        )
+        return True, None
+    except (ExecError, Exception) as e:
+        return False, str(e)
+
+
+# ---------------------------------------------------------------------------
+# radifox-update
+# ---------------------------------------------------------------------------
 
 
 def update(args: Optional[List[str]] = None) -> None:

@@ -27,6 +27,7 @@ dependencies = [
 
 [project.scripts]
 radifox-convert = "radifox.convert.cli:convert"
+radifox-convert-batch = "radifox.convert.cli:convert_batch"
 radifox-update = "radifox.convert.cli:update"
 
 [tool.setuptools.packages.find]

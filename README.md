@@ -48,6 +48,20 @@ radifox-convert \
 This will copy the files in the direction `/path/to/dicom_files` to the output directory `/path/to/output/study/123456/STUDY-1/dcm`, organize them and convert them to NIfTI.
 The NIfTI files (and their JSON sidecar files) will be placed in `/path/to/output/study/STUDY-123456/1/nii`.
 
+#### `radifox-convert-batch`
+The `radifox-convert-batch` script is used to convert DICOM files from multiple subjects in batch mode.
+It processes a parent directory containing subject subdirectories, automatically extracting the subject ID from DICOM headers.
+
+Example Usage:
+```bash
+radifox-convert-batch /path/to/dicom_parent_dir \
+    --output-root /path/to/output \
+    --project-id study
+```
+In this mode, `source` is treated as a parent directory containing subject subdirectories.
+The `PatientID` from DICOM headers is used as the subject ID and each subdirectory is converted automatically.
+Session ID is set to "1" for all subjects.
+
 #### `radifox-update`
 The `radifox-update` script is used to update naming for a directory of images.
 This is commonly done after an update to RADIFOX to ensure that all images are named according to the latest version of the naming system.
