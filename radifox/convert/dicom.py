@@ -12,38 +12,50 @@ from .lut import LookupTable
 from .metadata import Metadata
 from .utils import mkdir_p, extract_de, create_sf_headers
 
+# (DicomTag, AttrName) tuples for all fields extracted from DICOM headers.
 DCM_HEADER_ATTRS = [
-    "InstitutionName",
-    "Manufacturer",
+    ("Modality", "Modality"),
+    ("InstitutionName", "InstitutionName"),
+    ("Manufacturer", "Manufacturer"),
     ("ManufacturerModelName", "ScannerModelName"),
     ("DeviceSerialNumber", "DeviceIdentifier"),
-    "SeriesDescription",
-    "MagneticFieldStrength",
+    ("SeriesDescription", "SeriesDescription"),
+    ("MagneticFieldStrength", "MagneticFieldStrength"),
     ("MRAcquisitionType", "AcquisitionDimension"),
     ("SpacingBetweenSlices", "SliceSpacing"),
-    "SliceThickness",
-    "FlipAngle",
-    "RepetitionTime",
-    "EchoTime",
-    "InversionTime",
-    "TriggerTime",
-    "EchoTrainLength",
-    "AcquisitionMatrix",
+    ("SliceThickness", "SliceThickness"),
+    ("FlipAngle", "FlipAngle"),
+    ("RepetitionTime", "RepetitionTime"),
+    ("EchoTime", "EchoTime"),
+    ("InversionTime", "InversionTime"),
+    ("TriggerTime", "TriggerTime"),
+    ("EchoTrainLength", "EchoTrainLength"),
+    ("AcquisitionMatrix", "AcquisitionMatrix"),
     ("ScanningSequence", "SequenceType"),
-    "ScanOptions",
-    "ImageType",
-    "SeriesNumber",
-    "ComplexImageComponent",
-    "BodyPartExamined",
-    "StudyDescription",
-    "SequenceVariant",
+    ("ScanOptions", "ScanOptions"),
+    ("ImageType", "ImageType"),
+    ("SeriesNumber", "SeriesNumber"),
+    ("ComplexImageComponent", "ComplexImageComponent"),
+    ("BodyPartExamined", "BodyPartExamined"),
+    ("StudyDescription", "StudyDescription"),
+    ("SequenceVariant", "SequenceVariant"),
     ("PixelSpacing", "ReconResolution"),
-    "SoftwareVersions",
-    "NumberOfAverages",
-    "PercentSampling",
-    "ReceiveCoilName",
-    "PixelBandwidth",
+    ("SoftwareVersions", "SoftwareVersions"),
+    ("NumberOfAverages", "NumberOfAverages"),
+    ("PercentSampling", "PercentSampling"),
+    ("ReceiveCoilName", "ReceiveCoilName"),
+    ("PixelBandwidth", "PixelBandwidth"),
     ("VariableFlipAngleFlag", "VariableFlipAngle"),
+    # CT-specific attributes
+    ("ConvolutionKernel", "ConvolutionKernel"),  # Reconstruction kernel (e.g., STANDARD, BONE)
+    ("KVP", "KVP"),  # X-ray tube voltage in kVp (e.g., 80, 120)
+    ("XRayTubeCurrent", "XRayTubeCurrent"),  # Tube current in mA
+    ("ExposureTime", "ExposureTime"),  # Exposure duration in ms
+    ("Exposure", "Exposure"),  # Radiation exposure in mAs
+    ("ExposureInuAs", "ExposureInuAs"),  # Exposure in microampere-seconds
+    ("FilterType", "FilterType"),  # X-ray filter type (e.g., HEAD FILTER, BODY FILTER)
+    ("ExposureModulationType", "ExposureModulationType"),  # Dose modulation type
+    ("MultienergyCTAcquisition", "MultienergyCTAcquisition"),  # Multi-energy CT acquisition (YES/NO)
 ]
 
 DCM_HEADER_LISTS = [
@@ -69,12 +81,11 @@ class DicomInfo(BaseInfo):
         self.StudyUID = getattr(ds, "StudyInstanceUID", None)
         self.NumFiles = num_frames
         self.MultiFrame = multiframe
-        for item in DCM_HEADER_ATTRS:
-            get_item, set_item = item if isinstance(item, tuple) else (item, item)
+        for dcm_tag, attr_name in DCM_HEADER_ATTRS:
             setattr(
                 self,
-                set_item,
-                extract_de(ds, get_item, self.SeriesUID, get_item in DCM_HEADER_LISTS),
+                attr_name,
+                extract_de(ds, dcm_tag, self.SeriesUID, dcm_tag in DCM_HEADER_LISTS),
             )
         if self.SeriesDescription is None:
             self.SeriesDescription = ds.ProtocolName if hasattr(ds, "ProtocolName") else ""
@@ -243,7 +254,18 @@ def sort_dicoms(dcm_dir: Path, force_dicom: bool = False) -> None:
                     continue
             if "SOPClassUID" not in ds:
                 continue
-            if ds.SOPClassUID not in ["1.2.840.10008.5.1.4.1.1.4", "1.2.840.10008.5.1.4.1.1.4.1"]:
+            # Supported SOPClassUIDs:
+            # MR Image Storage: 1.2.840.10008.5.1.4.1.1.4
+            # Enhanced MR Image Storage: 1.2.840.10008.5.1.4.1.1.4.1
+            # CT Image Storage: 1.2.840.10008.5.1.4.1.1.2
+            # Enhanced CT Image Storage: 1.2.840.10008.5.1.4.1.1.2.1
+            supported_sop_classes = [
+                "1.2.840.10008.5.1.4.1.1.4",    # MR Image Storage
+                "1.2.840.10008.5.1.4.1.1.4.1",  # Enhanced MR Image Storage
+                "1.2.840.10008.5.1.4.1.1.2",    # CT Image Storage
+                "1.2.840.10008.5.1.4.1.1.2.1",  # Enhanced CT Image Storage
+            ]
+            if ds.SOPClassUID not in supported_sop_classes:
                 continue
             if getattr(ds, "SeriesInstanceUID", None) is None:
                 continue

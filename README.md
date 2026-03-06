@@ -1,5 +1,5 @@
 # RADIFOX Conversion Tools
-The RADIFOX conversion tools are a set of command line scripts and Python modules for converting DICOM (and PARREC) files to NIfTI files using the RADIFOX naming system.
+The RADIFOX conversion tools are a set of command line scripts and Python modules for converting MRI and CT DICOM (and PARREC) files to NIfTI files using the RADIFOX naming system.
 These tools are a wrapper around the `dcm2niix` tool that use the RADIFOX naming system to organize the output files.
 The conversion tools also include automatic logging and QA image generation.
 JSON sidecar files are created for each NIfTI file that contain critical metadata and conversion information.

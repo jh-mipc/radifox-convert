@@ -56,6 +56,17 @@ PARREC_ORIENTATIONS = {1: "axial", 2: "sagittal", 3: "coronal"}
 class BaseInfo:
     # TODO: Type consistent defaults? Type checking?
     # This can be done using type hints and defaults in the class definition
+    MR_ONLY_ATTRS = {
+        "MagneticFieldStrength", "AcquisitionDimension", "FlipAngle", "RepetitionTime",
+        "EchoTime", "InversionTime", "TriggerTime", "EchoTrainLength", "SequenceType",
+        "SequenceVariant", "NumberOfAverages", "PercentSampling", "ReceiveCoilName",
+        "VariableFlipAngle",
+    }
+    CT_ONLY_ATTRS = {
+        "ConvolutionKernel", "KVP", "XRayTubeCurrent", "MultienergyCTAcquisition",
+        "ExposureTime", "Exposure", "ExposureInuAs", "FilterType",
+        "ExposureModulationType",
+    }
     def __init__(self, path: Path) -> None:
         self.SourcePath = Path(path.parent.name) / path.name
         self.SourceHash = (
@@ -65,6 +76,7 @@ class BaseInfo:
         )
         self.SeriesUID = None
         self.StudyUID = None
+        self.Modality = None  # DICOM Modality tag (CT, MR, etc.)
         self.NumFiles = None
         self.MultiFrame = None
         self.InstitutionName = None
@@ -108,6 +120,15 @@ class BaseInfo:
         self.ReceiveCoilName = None
         self.PixelBandwidth = None
         self.VariableFlipAngle = None
+        self.ConvolutionKernel = None  # CT reconstruction kernel (e.g., STANDARD, BONE)
+        self.KVP = None  # X-ray tube voltage in kVp (e.g., 80, 120)
+        self.XRayTubeCurrent = None  # Tube current in mA
+        self.ExposureTime = None  # Exposure duration in ms
+        self.Exposure = None  # Radiation exposure in mAs
+        self.ExposureInuAs = None  # Exposure in microampere-seconds
+        self.FilterType = None  # X-ray filter type (e.g., HEAD FILTER, BODY FILTER)
+        self.ExposureModulationType = None  # Dose modulation type
+        self.MultienergyCTAcquisition = None  # Multi-energy CT acquisition (YES/NO)
 
         self.ConvertImage = False
         self.NiftiCreated = False
@@ -118,7 +139,13 @@ class BaseInfo:
         self.NiftiHash = None
 
     def __repr_json__(self) -> dict:
-        return {k: NoIndent(v) for k, v in self.__dict__.items()}
+        if getattr(self, "Modality", None) == "CT":
+            skip = self.MR_ONLY_ATTRS
+        elif getattr(self, "Modality", None) == "MR":
+            skip = self.CT_ONLY_ATTRS
+        else:
+            skip = set()
+        return {k: NoIndent(v) for k, v in self.__dict__.items() if k not in skip}
 
     def anonymize(self, date_shift_days: int = 0):
         for key in HASH_ITEMS:
@@ -275,7 +302,7 @@ class BaseInfo:
             sequence = "SE"
         elif any([seq == "gr" for seq in seq_type]):
             sequence = "GRE"
-        elif self.FlipAngle >= 60:
+        elif self.FlipAngle is not None and self.FlipAngle >= 60:
             sequence = "SE"
         if (
             any(["ep" == seq for seq in seq_type])
@@ -323,6 +350,34 @@ class BaseInfo:
                 "PD" if self.RepetitionTime is not None and self.RepetitionTime > 800 else "T1"
             )
 
+        # CT-specific naming logic
+        if self.Modality == "CT":
+            # CT modality: use contrast status or angiography keywords
+            ct_keywords = series_desc if series_desc else ""
+            if any(kw in ct_keywords for kw in ["cta", "angio", "angiography"]):
+                modality = "CTA"
+            elif any(kw in ct_keywords for kw in ["perfusion", "perf"]):
+                modality = "PERF"
+            elif excontrast == "POST" or self.ExContrastAgent:
+                modality = "CONTRAST"
+            else:
+                modality = "NONCON"
+
+            # CT sequence/technique: use reconstruction kernel
+            kernel_val = self.ConvolutionKernel
+            if isinstance(kernel_val, (list, tuple)):
+                kernel_val = kernel_val[0] if kernel_val else None
+            kernel = kernel_val.upper() if kernel_val else "STANDARD"
+            kernel_lower = kernel.lower()
+            if any(kw in kernel_lower for kw in ["bone", "sharp", "edge"]):
+                sequence = "BONE"
+            elif any(kw in kernel_lower for kw in ["lung", "high"]):
+                sequence = "LUNG"
+            elif any(kw in kernel_lower for kw in ["soft", "smooth", "standard"]):
+                sequence = "SOFT"
+            else:
+                sequence = kernel[:8]  # Use first 8 chars of kernel name
+
         body_part = "UNK"
         body_part_ex = "" if self.BodyPartExamined is None else self.BodyPartExamined.lower()
         study_desc = (
@@ -330,7 +385,10 @@ class BaseInfo:
         )
         # Define a list of tuples with regular expression patterns and corresponding body part values
         patterns = [
-            (r"(brain|^br_)", "BRAIN"),
+            (r"(brain|^br_|head)", "BRAIN"),
+            (r"(chest|thorax|lung|pulm)", "CHEST"),
+            (r"(abdomen|abdom|liver|kidney|pancrea)", "ABDOMEN"),
+            (r"(pelvis|pelvic)", "PELVIS"),
             (r"ct[ -]?spine", "SPINE"),
             (
                 r"(?<!\w)(cerv|c[ -]?sp|c.?spine|msma)",
@@ -382,6 +440,9 @@ class BaseInfo:
             series_desc.endswith("_tracew") or series_desc.endswith("_fa")
         ):
             logging.info("This series is localizer, derived or processed image. Skipping.")
+            return False
+        elif self.Modality == "CT" and self.NumFiles < 10:
+            logging.info("This series is a CT scout/localizer (fewer than 10 slices). Skipping.")
             return False
         elif body_part == "ORBITS" and self.NumFiles * slice_sp > 120:
             body_part = "BRAIN"
