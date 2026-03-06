@@ -5,18 +5,70 @@ from pathlib import Path
 import shutil
 from typing import List, Optional
 
+from pydicom import dcmread
+from pydicom.dataset import Dataset, FileDataset
+from pydicom.errors import InvalidDicomError
+
 from radifox.records.hashing import hash_file_dir
 
 from ._version import __version__
+from .anondb import AnonDB
+from .deanon import deanonymize_subject
 from .exec import run_conversion, ExecError
 from .lut import LookupTable
 from .metadata import Metadata
 from .utils import silentremove, mkdir_p, version_check
 
 
+def _extract_patient_info(ds: Dataset | FileDataset) -> dict:
+    """Extract patient-level DICOM attributes from a pydicom Dataset."""
+    return {
+        "patient_id": getattr(ds, "PatientID", None),
+        "patient_name": str(getattr(ds, "PatientName", "")) or None,
+        "patient_birth_date": getattr(ds, "PatientBirthDate", None),
+        "patient_sex": getattr(ds, "PatientSex", None),
+        "study_uid": getattr(ds, "StudyInstanceUID", None),
+        "institution_name": getattr(ds, "InstitutionName", None),
+    }
+
+
+def _find_first_dicom(directory: Path):
+    """Walk a directory to find and read the first valid DICOM file."""
+    for f in sorted(directory.rglob("*")):
+        if f.is_file():
+            try:
+                ds = dcmread(f, stop_before_pixels=True)
+                return ds
+            except (InvalidDicomError, Exception):
+                continue
+    return None
+
+
+def _run_deanonymize(args: argparse.Namespace) -> None:
+    """Reverse anonymization using the mapping database."""
+    project_id = args.project_id.upper()
+    project_dir = args.output_root / project_id.lower()
+
+    if not project_dir.exists():
+        raise ValueError("Project directory does not exist: %s" % project_dir)
+
+    with AnonDB(args.anon_db) as db:
+        subjects = db.get_all_subjects()
+        if args.subject:
+            subjects = [s for s in subjects if s.patient_id == args.subject]
+            if not subjects:
+                raise ValueError("Patient ID '%s' not found in database." % args.subject)
+
+        for subject in subjects:
+            sessions = db.get_sessions_for_subject(subject.anon_id)
+            deanonymize_subject(project_dir, project_id, subject, sessions)
+
+    print("\n--- De-anonymized %d subject(s) ---" % len(subjects))
+
+
 def convert(args: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("source", type=Path, help="Source directory/file to convert.")
+    parser.add_argument("source", type=Path, nargs="?", help="Source directory/file to convert.")
     parser.add_argument(
         "-o", "--output-root", type=Path, help="Output root directory.", required=True
     )
@@ -61,16 +113,60 @@ def convert(args: Optional[List[str]] = None) -> None:
         help="Convert derived/secondary DICOM series that would normally be skipped.",
         default=False,
     )
-    parser.add_argument("--anonymize", action="store_true", help="Anonymize DICOM data.")
+    parser.add_argument(
+        "--anonymize",
+        action="store_true",
+        help="Anonymize DICOM data (irreversible unless --anon-db is also provided).",
+    )
     parser.add_argument("--date-shift-days", type=int, help="Number of days to shift dates.")
+    parser.add_argument(
+        "--anon-db",
+        type=Path,
+        help="Path to SQLite anonymization mapping database. "
+        "Records original patient identifiers for later de-anonymization. "
+        "Requires --anonymize.",
+    )
+    parser.add_argument(
+        "--deanonymize",
+        action="store_true",
+        help="Reverse anonymization using the mapping database "
+        "(requires --anon-db and --project-id).",
+    )
+    parser.add_argument(
+        "--subject",
+        type=str,
+        help="De-anonymize only this patient ID (only with --deanonymize).",
+    )
     parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
 
     args = parser.parse_args(args)
 
-    for argname in ["source", "output_root", "lut_file", "tms_metafile"]:
-        if getattr(args, argname) is not None:
+    for argname in ["source", "output_root", "lut_file", "tms_metafile", "anon_db"]:
+        if getattr(args, argname, None) is not None:
             setattr(args, argname, getattr(args, argname).resolve())
 
+    # --- Deanonymize mode ---
+    if args.deanonymize:
+        if args.anon_db is None:
+            raise ValueError("--deanonymize requires --anon-db.")
+        if args.project_id is None:
+            raise ValueError("--deanonymize requires --project-id.")
+        _run_deanonymize(args)
+        return
+
+    if args.subject:
+        raise ValueError("--subject is only valid with --deanonymize.")
+
+    if args.source is None:
+        raise ValueError("source is required (omit only with --deanonymize).")
+
+    if args.anon_db is not None and not args.anonymize:
+        raise ValueError("--anon-db requires --anonymize.")
+
+    if args.date_shift_days is not None and not args.anonymize:
+        raise ValueError("--date-shift-days requires --anonymize.")
+
+    # --- Standard conversion ---
     if args.hardlink and args.symlink:
         raise ValueError("Only one of --symlink and --hardlink can be used.")
     linking = "hardlink" if args.hardlink else ("symlink" if args.symlink else None)
@@ -166,6 +262,12 @@ def convert(args: Optional[List[str]] = None) -> None:
         "InstitutionName": args.institution,
     }
 
+    # If --anon-db is provided, read DICOM patient info before conversion
+    # (source files may be removed during anonymized conversion)
+    if args.anon_db is not None:
+        ds = _find_first_dicom(args.source) if args.source.is_dir() else None
+        patient_info = _extract_patient_info(ds) if ds is not None else {}
+
     run_conversion(
         args.source,
         args.output_root,
@@ -183,6 +285,26 @@ def convert(args: Optional[List[str]] = None) -> None:
         None,
         args.force_derived,
     )
+
+    # Record mapping in anonymization database after successful conversion
+    if args.anon_db is not None:
+        with AnonDB(args.anon_db) as db:
+            anon_id = db.get_or_create_subject(
+                patient_id=patient_info.get("patient_id") or metadata.SubjectID,
+                patient_name=patient_info.get("patient_name"),
+                patient_birth_date=patient_info.get("patient_birth_date"),
+                patient_sex=patient_info.get("patient_sex"),
+                date_shift_days=args.date_shift_days,
+                anon_id=metadata.SubjectID,
+            )
+            db.add_session(
+                anon_id=anon_id,
+                source_path=str(args.source),
+                original_study_uid=patient_info.get("study_uid"),
+                institution_name=patient_info.get("institution_name"),
+            )
+            db.commit()
+        print("Recorded mapping in %s (subject %s)" % (args.anon_db, anon_id))
 
 
 def update(args: Optional[List[str]] = None) -> None:

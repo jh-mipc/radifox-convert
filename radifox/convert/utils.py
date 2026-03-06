@@ -269,6 +269,8 @@ def version_check(saved_version: str, current_version: str) -> bool:
 
 
 def shift_date(datetime_str: str, date_shift_days: int = 0) -> str:
+    if not date_shift_days:
+        return datetime_str
     orig_date = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
     return (orig_date + timedelta(days=date_shift_days)).strftime("%Y-%m-%d %H:%M:%S")
 
