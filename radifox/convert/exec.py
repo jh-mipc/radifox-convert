@@ -138,6 +138,6 @@ def run_conversion(
         logging.info("RADIFOX conversion finished: %s" % metadata.dir_to_str())
     except KeyboardInterrupt:
         raise
-    except:
+    except:  # noqa: E722
         logging.exception("Fatal error occurred.")
         raise ExecError()
