@@ -123,6 +123,7 @@ class ParrecSet(BaseSet):
         manual_names: Optional[dict] = None,
         manual_args: Optional[dict] = None,
         input_hash: Optional[str] = None,
+        qa: bool = True,
     ) -> None:
         super().__init__(
             source,
@@ -133,6 +134,7 @@ class ParrecSet(BaseSet):
             date_shift_days,
             manual_names,
             input_hash,
+            qa=qa,
         )
         self.ManualArgs = manual_args
 
