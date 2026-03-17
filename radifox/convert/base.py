@@ -383,7 +383,7 @@ class BaseInfo:
         study_desc = (
             "" if self.StudyDescription is None else self.StudyDescription.lower().replace(" ", "")
         )
-        # Define a list of tuples with regular expression patterns and corresponding body part values
+        # Define a list of tuples with regex patterns and corresponding body part values
         patterns = [
             (r"(brain|^br_|head)", "BRAIN"),
             (r"(chest|thorax|lung|pulm)", "CHEST"),
@@ -646,7 +646,8 @@ class BaseSet:
             ):
                 di.update_name(lambda x: x + "-ND")
 
-        # Change T1 image to MT/MTOFF if matches an MT sequence and add MTON for the corresponding MT scan
+        # Change T1 image to MT/MTOFF if matches an MT sequence and 
+        # add MTON for the corresponding MT scan
         for i, di in enumerate(self.SeriesList):
             if di.NiftiName is None:
                 continue

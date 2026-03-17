@@ -66,7 +66,10 @@ def convert(args: Optional[List[str]] = None) -> None:
     parser.add_argument(
         "--extras",
         type=str,
-        help="Comma-separated DICOM field names to append to filename (e.g., 'SeriesNumber,SliceThickness').",
+        help=(
+            "Comma-separated DICOM field names to append to filename "
+            "(e.g., 'SeriesNumber,SliceThickness')."
+        ),
     )
     parser.add_argument(
         "--no-qa",
@@ -259,8 +262,8 @@ def update(args: Optional[List[str]] = None) -> None:
         and json_obj["ManualNames"] == manual_names
     ):
         print(
-            "No action required. Software version, LUT dictionary and naming dictionary match for %s."
-            % args.directory
+            f"No action required. Software version, LUT dictionary "
+            f"and naming dictionary match for {args.directory}."
         )
         return
 

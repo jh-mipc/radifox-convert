@@ -18,7 +18,7 @@ def array_string_func(format_str, sep=" "):
 
 
 def numpy_str_replace():
-    return lambda x: "{:s}".format((x if type(x) == str else x.decode("UTF-8")).replace(" ", "-"))
+    return lambda x: "{:s}".format((x if isinstance(x, str) else x.decode("UTF-8")).replace(" ", "-"))
 
 
 def gen_dict_strings(format_dict, value_dict_array):

@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 import shutil
-from typing import List, Optional
 
 from radifox.records.logging import create_loggers
 from radifox.records.hashing import hash_value
@@ -26,22 +25,22 @@ class ExecError(Exception):
 
 
 def run_conversion(
-    source: Optional[Path],
+    source: Path | None,
     output_root: Path,
     metadata: Metadata,
     lut_file: Path,
     verbose: bool,
     parrec: bool,
     rerun: bool,
-    link: Optional[str],
+    link: str | None,
     manual_args: dict,
     force_dicom: bool,
     remove_identifiers: bool,
     date_shift_days: int,
     manual_names: dict,
-    input_hash: Optional[str] = None,
+    input_hash: str | None = None,
     force_derived: bool = False,
-    extras: Optional[list] = None,
+    extras: list[str] | None = None,
     qa: bool = True,
 ) -> None:
     session_path = output_root / metadata.dir_to_str()
