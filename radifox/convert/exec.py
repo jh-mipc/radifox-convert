@@ -42,6 +42,7 @@ def run_conversion(
     input_hash: Optional[str] = None,
     force_derived: bool = False,
     extras: Optional[list] = None,
+    qa: bool = True,
 ) -> None:
     session_path = output_root / metadata.dir_to_str()
     mkdir_p(session_path)
@@ -114,6 +115,7 @@ def run_conversion(
                 input_hash=input_hash,
                 manual_args=manual_args,
                 extras=extras,
+                qa=qa,
             )
         else:
             img_set = DicomSet(
@@ -127,6 +129,7 @@ def run_conversion(
                 input_hash=input_hash,
                 force_derived=force_derived,
                 extras=extras,
+                qa=qa,
             )
         img_set.create_all_nii()
         img_set.generate_unconverted_info()

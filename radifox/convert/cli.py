@@ -68,6 +68,12 @@ def convert(args: Optional[List[str]] = None) -> None:
         type=str,
         help="Comma-separated DICOM field names to append to filename (e.g., 'SeriesNumber,SliceThickness').",
     )
+    parser.add_argument(
+        "--no-qa",
+        action="store_true",
+        help="Disable QA image generation for converted NIfTI files.",
+        default=False,
+    )
     parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
 
     args = parser.parse_args(args)
@@ -191,6 +197,7 @@ def convert(args: Optional[List[str]] = None) -> None:
         None,
         args.force_derived,
         extras_list,
+        qa=not args.no_qa,
     )
 
 

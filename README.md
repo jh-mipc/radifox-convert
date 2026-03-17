@@ -1,5 +1,5 @@
 # RADIFOX Conversion Tools
-The RADIFOX conversion tools are a set of command line scripts and Python modules for converting DICOM (and PARREC) files to NIfTI files using the RADIFOX naming system.
+The RADIFOX conversion tools are a set of command line scripts and Python modules for converting MRI and CT DICOM (and PARREC) files to NIfTI files using the RADIFOX naming system.
 These tools are a wrapper around the `dcm2niix` tool that use the RADIFOX naming system to organize the output files.
 The conversion tools also include automatic logging and QA image generation.
 JSON sidecar files are created for each NIfTI file that contain critical metadata and conversion information.
@@ -73,7 +73,7 @@ The conversion process is as follows:
  4. Generate image names automatically from the DICOM metadata, look-up tables, and manual naming entries.
  5. Convert the DICOM files to NIfTI using `dcm2niix` and rename to RADIFOX naming.
  6. Create the JSON sidecar files for the NIfTI files (contains some DICOM metadata).
- 7. Create QA images for the converted NIfTI files.
+ 7. Create QA images for the converted NIfTI files (unless `--no-qa` is specified).
 
 ## Look-up Tables
 The look-up tables are a set of rules for automatically naming images based on the DICOM `SeriesDescription` tag.
@@ -163,9 +163,14 @@ You must import `logging` at the top of the file to use this feature.
 If there are warnings or errors produced during execution, they will be written to additional log files (`-warning.log` and `-error.log`) for easy viewing.
 There is currently no support for `DEBUG` level messages, but that is planned for the future.
 
-## Automatic QA Images
-The auto-provenance system also includes automatic generation of QA images from outputs.
-Any output that is returned from the `run` method will have a QA image generated automatically, if it is a NIfTI file (ends in `.nii.gz`).
+## QA Images
+QA images are PNG montages that show slices across the axial, coronal, and sagittal planes for each converted NIfTI file.
+They provide a quick visual check for artifacts or incorrect orientation without needing to open a NIfTI viewer.
+Each volume is resampled to 1mm isotropic resolution and 9 evenly spaced slices are extracted per plane, producing a single image per NIfTI file.
+QA images are stored in the `qa/conversion` directory within each session directory.
+
+QA image generation is enabled by default.
+It can be disabled by passing the `--no-qa` flag to `radifox-convert`, which may be useful as the resampling step can be computationally expensive for large volumes.
 
 # Additional Information
 
@@ -197,6 +202,7 @@ Any output that is returned from the `run` method will have a QA image generated
 | `--date-shift-days`         | The number of days to shift the date by during anonymization.                                                                          | `None`                                            |
 | `--tms-metafile`            | The TMS metafile to use for subject, site and session ID.                                                                              | `None`                                            |
 | `--force-derived`           | Convert derived/secondary DICOM series that would normally be skipped (e.g., images converted from NIfTI back to DICOM).               | `False`                                           |
+| `--no-qa`                   | Disable QA image generation for converted NIfTI files.                                                                                 | `False`                                           |
 
 ### `radifox-update`
 | Option             | Description                                                | Default                               |
