@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "nibabel",
     "numpy",
-    "radifox @ git+https://github.com/jh-mipc/radifox.git@34e85d2",
+    "radifox @ git+https://github.com/jh-mipc/radifox.git@6d78467",
     "pydicom",
 ]
 
