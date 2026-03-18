@@ -55,7 +55,7 @@ DCM_HEADER_ATTRS = [
     ("ExposureInuAs", "ExposureInuAs"),  # Exposure in microampere-seconds
     ("FilterType", "FilterType"),  # X-ray filter type (e.g., HEAD FILTER, BODY FILTER)
     ("ExposureModulationType", "ExposureModulationType"),  # Dose modulation type
-    ("MultienergyCTAcquisition", "MultienergyCTAcquisition"),  # Multi-energy CT acquisition (YES/NO)
+    ("MultienergyCTAcquisition", "MultienergyCTAcquisition"),  # Multi-energy CT ACQ (YES/NO)
 ]
 
 DCM_HEADER_LISTS = [

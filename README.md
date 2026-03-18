@@ -6,6 +6,7 @@ JSON sidecar files are created for each NIfTI file that contain critical metadat
 
 ## Table of Contents
 - [Installation](#installation)
+- [Development](#development)
 - [Basic Usage](#basic-usage)
   - [CLI Scripts](#cli-scripts)
     - [`radifox-convert`](#radifox-convert)
@@ -24,6 +25,17 @@ JSON sidecar files are created for each NIfTI file that contain critical metadat
 `radifox-convert` is available on PyPI and can be installed with pip:
 ```bash
 pip install radifox-convert
+```
+
+## Development
+
+For local development:
+
+```bash
+pip install -e .
+pip install pytest ruff
+pytest
+ruff check .
 ```
 
 ## Basic Usage

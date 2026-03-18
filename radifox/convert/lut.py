@@ -28,8 +28,8 @@ class LookupTable:
                     self.LookupDict[inst_name] = {}
                 if lut["SeriesDescription"][row] in self.LookupDict[inst_name]:
                     raise ValueError(
-                        "Series description (%s) already exists for site (%s) and institution name (%s)"
-                        % (lut["SeriesDescription"][row], site_id, inst_name)
+                        f"Series description {lut['SeriesDescription'][row]} already "
+                        f"exists for site {site_id} and institution name {inst_name}"
                     )
                 self.LookupDict[inst_name][lut["SeriesDescription"][row]] = lut["OutputFilename"][
                     row
