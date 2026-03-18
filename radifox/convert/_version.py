@@ -3,12 +3,11 @@
 #
 from collections import namedtuple
 import os
-import subprocess
 
 Version = namedtuple("Version", ("release", "dev", "labels"))
 
 # No public API
-__all__ = ['__version__']
+__all__ = []
 
 package_root = os.path.dirname(os.path.realpath(__file__))
 package_name = os.path.basename(package_root)
@@ -59,13 +58,15 @@ def pep440_format(version_info):
 
 
 def get_version_from_git():
+    import subprocess
+
     # git describe --first-parent does not take into account tags from branches
     # that were merged-in. The '--long' flag gets us the 'dev' version and
     # git hash, '--always' returns the git hash even if there are no tags.
     for opts in [["--first-parent"], []]:
         try:
             p = subprocess.Popen(
-                ["git", "describe", "--long", "--always"] + opts,
+                ["git", "describe", "--long", "--always", "--tags", "--dirty"] + opts,
                 cwd=package_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -80,13 +81,17 @@ def get_version_from_git():
     description = (
         p.communicate()[0]
         .decode()
-        .strip("v")  # Tags can have a leading 'v', but the version should not
+        .lstrip("v")  # Tags can have a leading 'v', but the version should not
         .rstrip("\n")
-        .rsplit("-", 2)  # Split the latest tag, commits since tag, and hash
+        .rsplit("-")  # Split the latest tag, commits since tag, and hash
     )
 
+    # We could be left with 3, or 4 parts to git describe at this point
+    # version dev git hash [dirty]
+    # Where dirty is an optional part
+
     try:
-        release, dev, git = description
+        release, dev, git = description[:3]
     except ValueError:  # No tags, only the git hash
         # prepend 'g' to match with format returned by 'git describe'
         git = "g{}".format(*description)
@@ -99,13 +104,8 @@ def get_version_from_git():
     else:
         labels.append(git)
 
-    try:
-        p = subprocess.Popen(["git", "diff", "--quiet"], cwd=package_root)
-    except OSError:
-        labels.append("confused")  # This should never happen.
-    else:
-        if p.wait() == 1:
-            labels.append("dirty")
+    if description[-1] == "dirty":
+        labels.append("dirty")
 
     return Version(release, dev, labels)
 
@@ -163,7 +163,7 @@ def _write_version(fname):
 def get_cmdclass(pkg_source_path):
     from setuptools.command.build_py import build_py as build_py_orig
     from setuptools.command.sdist import sdist as sdist_orig
-    
+
     class _build_py(build_py_orig):
         def run(self):
             super().run()
@@ -175,9 +175,7 @@ def get_cmdclass(pkg_source_path):
             else:
                 path = pkg_source_path
             _write_version(
-                os.path.join(
-                    self.build_lib, path, STATIC_VERSION_FILE
-                )
+                os.path.join(self.build_lib, path, STATIC_VERSION_FILE)
             )
 
     class _sdist(sdist_orig):
